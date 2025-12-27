@@ -5,6 +5,8 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <iostream>
+#include <string>
+#include <sstream>
 
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -16,6 +18,7 @@ typedef struct HTTPRequest {
 	char headers[1024];
 	char body[1024];
 } HTTPRequest;
+
 
 
 int main()
@@ -95,15 +98,14 @@ int main()
 		if (iResult > 0) {
 			printf("Bytes received: %d\n", iResult);
 
-			// Echo the buffer back to the sender
-			iSendResult = send(clientSocket, recvbuf, iResult, 0);
-			if (iSendResult == SOCKET_ERROR) {
-				printf("send failed: %d\n", WSAGetLastError());
-				closesocket(clientSocket);
-				WSACleanup();
-				return 1;
+			if (iResult == DEFAULT_BUFLEN) {
+				recvbuf[DEFAULT_BUFLEN - 1] = 0;
 			}
-			printf("Bytes sent: %d\n", iSendResult);
+			else {
+				recvbuf[iResult] = 0;
+			}
+
+			std::cout << recvbuf;
 		}
 		else if (iResult == 0)
 			printf("Connection closing...\n");
