@@ -1,20 +1,15 @@
 #pragma once
 #include <string>
-#include <string_view>
 #include <optional>
-
-typedef struct HttpRequest {
-	std::string startLine;
-	std::string headers;
-	std::string body;
-} HttpRequest;
+#include <unordered_map>
+#include <sstream>
 
 // This unscoped enumeration is used to represent HTTP methods and is accessible to other parts of the program
 enum HttpMethod {
 	GET,
 	POST,
 	PUT,
-	DELETE,
+	DEL, // Cannot use DELETE as it is a reserved word in the Windows SDK TODO: Is this actually from the windows sdk or vanilla c++?
 	HEAD,
 	OPTIONS,
 	PATCH,
@@ -24,15 +19,23 @@ enum HttpMethod {
 class HttpRequest {
 public:
 	HttpRequest() = default;
-	HttpRequest(std::string_view raw);
+	HttpRequest(const std::string& rawRequest);
+	void parseRequest(const std::string& rawReqest);
+	
+	// Class getters
+	HttpMethod getMethod() const { return this->mMethod; }
+	std::string getRequestTarget() const { return this->mRequestTarget; }
+	std::string getHTTPVersion() const { return this->mHTTPVersion; }
+	std::optional<std::string> getHeaderValue(const std::string& headerName) const;
 
-	static std::optional<std::string> parseRequest(std::string_view request);
-
-	std::string getStartLine() const;
-	std::string getHeaders() const;
-	std::string getHeader(std::string) const;
-	std::string getBody() const;
+	// Static utility functions for converting between string and HttpMethod enum
+	static HttpMethod stringToHttpMethod(const std::string& methodStr);
+	static std::string httpMethodToString(const HttpMethod& method);
 
 private:
 	HttpMethod mMethod;
+	std::string mRequestTarget;
+	std::string mHTTPVersion;
+	std::unordered_map<std::string, std::string> mHeaders;
+	std::string mBody;
 };

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include "HttpRequest.h"
 
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -105,7 +106,10 @@ int main()
 				recvbuf[iResult] = 0;
 			}
 
-			std::cout << recvbuf;
+			HttpRequest request;
+			request.parseRequest(std::string(recvbuf));
+			std::cout << "Request parsed. Method: " << HttpRequest::httpMethodToString(request.getMethod()) <<
+				", Target: " << request.getRequestTarget() << std::endl;
 		}
 		else if (iResult == 0)
 			printf("Connection closing...\n");
