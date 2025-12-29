@@ -8,18 +8,16 @@
 #include <string>
 #include <sstream>
 #include "HttpRequest.h"
+#include "HttpListener.h"
+#include "HttpSocket.h"
+#include <vector>
+#include <iterator>
+#include <optional>
 
 #pragma comment(lib,"Ws2_32.lib")
 
 #define COMM_PORT "8080"
 #define DEFAULT_BUFLEN 512
-
-typedef struct HTTPRequest {
-	char startLine[128];
-	char headers[1024];
-	char body[1024];
-} HTTPRequest;
-
 
 
 int main()
@@ -29,7 +27,7 @@ int main()
 
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsadata);
 	if (iResult != 0) {
-		std::cerr << "Failed to initialzie Winsock\n";
+		std::cerr << "Failed to initialize Winsock\n";
 		return 1;
 	}
 
@@ -51,7 +49,53 @@ int main()
 		return 1;
 	}
 
-	SOCKET listenSocket = INVALID_SOCKET;
+	try {
+		HttpListener listener(result);
+		std::vector<HttpSocket> clients;
+		clients.reserve(10000); // Preallocate space for clients to avoid reallocation during operation
+		std::cout << "Listening on port " << COMM_PORT << "...\n";
+
+
+		do {
+			// Accept new client connections
+			std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
+			if (potentialClient.has_value()) {
+				clients.push_back(std::move(potentialClient.value()));
+				std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
+			}
+			
+			// Iterate through clients and service all requests
+			for (auto it{ clients.begin() }; it != clients.end(); ++it) {
+				std::optional<std::string> request{ it->getRequest() };
+
+				// Check if the client has disconnected
+				if(it->shouldClose()) {
+					std::cout << "Client #" << std::distance(clients.begin(), it) << " has disconnected.\n";
+					it = clients.erase(it);
+					continue;
+				}
+
+				// Handle the client's request
+				if (request.has_value()) {
+					// Construct an HttpRequest object from the raw request string
+					HttpRequest httpRequest{ request.value() };
+					std::cout << "Received request for " << httpRequest.getRequestTarget() << "\n";
+				}
+			}
+
+			std::cout << "Test of nonblocking\n";
+		} while (true);
+	}
+	catch (...) {
+		std::cerr << "Fatal error. Last WSA error reported: " << WSAGetLastError() << "\n";
+		WSACleanup();
+		return 1;
+	}
+	
+	
+
+
+	/*SOCKET listenSocket = INVALID_SOCKET;
 	listenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 
 	if (listenSocket == INVALID_SOCKET) {
@@ -88,41 +132,7 @@ int main()
 		return 1;
 	}
 
-	char recvbuf[DEFAULT_BUFLEN];
-	int iSendResult;
-	int recvbuflen = DEFAULT_BUFLEN;
-
-	// Receive until the peer shuts down the connection
-	do {
-
-		iResult = recv(clientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-			printf("Bytes received: %d\n", iResult);
-
-			if (iResult == DEFAULT_BUFLEN) {
-				recvbuf[DEFAULT_BUFLEN - 1] = 0;
-			}
-			else {
-				recvbuf[iResult] = 0;
-			}
-
-			HttpRequest request;
-			request.parseRequest(std::string(recvbuf));
-			std::cout << "Request parsed. Method: " << HttpRequest::httpMethodToString(request.getMethod()) <<
-				", Target: " << request.getRequestTarget() << std::endl;
-		}
-		else if (iResult == 0)
-			printf("Connection closing...\n");
-		else {
-			printf("recv failed: %d\n", WSAGetLastError());
-			closesocket(clientSocket);
-			WSACleanup();
-			return 1;
-		}
-
-	} while (iResult > 0);
-
-
-	closesocket(listenSocket);
+	closesocket(listenSocket);*/
 	WSACleanup();
+	return 0;
 }
