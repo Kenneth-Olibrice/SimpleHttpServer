@@ -13,12 +13,13 @@
 #include <vector>
 #include <iterator>
 #include <optional>
+#include <thread>
+#include <mutex>
 
 #pragma comment(lib,"Ws2_32.lib")
 
 #define COMM_PORT "8080"
 #define DEFAULT_BUFLEN 512
-
 
 int main()
 {
@@ -49,23 +50,40 @@ int main()
 		return 1;
 	}
 
+	std::mutex clientsMutex;
+
 	try {
-		HttpListener listener(result);
 		std::vector<HttpSocket> clients;
 		clients.reserve(10000); // Preallocate space for clients to avoid reallocation during operation
 		std::cout << "Listening on port " << COMM_PORT << "...\n";
+		
 
+		// Accept new client connections
+		std::thread acceptThread([&clients, &result, &clientsMutex]() {
+			HttpListener listener(result);
+			while (true) {
+				std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
+				if (potentialClient.has_value()) {
+					const std::lock_guard<std::mutex> clientsLock(clientsMutex);
+					clients.push_back(std::move(potentialClient.value()));
+					//std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
+				}
+			}
+		});
+
+		acceptThread.detach();
 
 		do {
 			// Accept new client connections
-			std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
+			/*std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
 			if (potentialClient.has_value()) {
 				clients.push_back(std::move(potentialClient.value()));
 				std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
-			}
+			}*/
 			
 			// Iterate through clients and service all requests
-			for (auto it{ clients.begin() }; it != clients.end(); ++it) {
+			const std::lock_guard<std::mutex> clientsLock(clientsMutex);
+			for (auto it{ clients.begin() }; it != clients.end(); /* To avoid issues with iterator invalidation, do nothing here*/) {
 				std::optional<std::string> request{ it->getRequest() };
 
 				// Check if the client has disconnected
@@ -73,6 +91,9 @@ int main()
 					std::cout << "Client #" << std::distance(clients.begin(), it) << " has disconnected.\n";
 					it = clients.erase(it);
 					continue;
+				}
+				else {
+					++it;
 				}
 
 				// Handle the client's request
@@ -83,7 +104,7 @@ int main()
 				}
 			}
 
-			std::cout << "Test of nonblocking\n";
+			//std::cout << "Test of nonblocking\n";
 		} while (true);
 	}
 	catch (...) {

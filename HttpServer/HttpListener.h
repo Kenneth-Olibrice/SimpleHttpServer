@@ -8,11 +8,12 @@ public:
 	HttpListener(struct addrinfo* addrinfo);
 	~HttpListener();
 	
-	// We will never support copy semantics for this class. For now, move semantics are also disabled
+	// We will never support copy semantics for this class
 	HttpListener(HttpListener& other) = delete;
 	HttpListener& operator=(HttpListener& other) = delete;
-	HttpListener(HttpListener&& other) = delete;
-	HttpListener& operator=(HttpListener&& other) = delete;
+
+	HttpListener(HttpListener&& other);
+	HttpListener& operator=(HttpListener&& other);
 
 	std::optional<HttpSocket> acceptConnection();
 

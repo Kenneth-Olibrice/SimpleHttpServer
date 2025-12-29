@@ -22,6 +22,23 @@ HttpListener::HttpListener(struct addrinfo* addrinfo) {
 	}
 }
 
+HttpListener::HttpListener(HttpListener&& other) : mListenSocket(other.mListenSocket) {
+	other.mListenSocket = INVALID_SOCKET;
+}
+
+HttpListener& HttpListener::operator=(HttpListener&& other) {
+	if (this == &other)
+		return *this;
+
+	if (this->mListenSocket != INVALID_SOCKET)
+		closesocket(this->mListenSocket);
+
+	this->mListenSocket = other.mListenSocket;
+	other.mListenSocket = INVALID_SOCKET;
+
+	return *this;
+}
+
 HttpListener::~HttpListener() {
 	if(this->mListenSocket != INVALID_SOCKET)
 		closesocket(this->mListenSocket);
