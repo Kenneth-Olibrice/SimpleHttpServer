@@ -1,9 +1,7 @@
 #include "HttpSocket.h"
 
-HttpSocket::HttpSocket(SOCKET listenSocket) : mClientSocket(listenSocket) {}
 
-HttpSocket::HttpSocket(HttpSocket&& other) {
-	this->mClientSocket = other.mClientSocket;
+HttpSocket::HttpSocket(HttpSocket&& other) : mClientSocket(other.mClientSocket) {
 	other.mClientSocket = INVALID_SOCKET;
 }
 
@@ -13,6 +11,7 @@ HttpSocket& HttpSocket::operator=(HttpSocket&& other) {
 	if (this->mClientSocket != INVALID_SOCKET)
 		closesocket(this->mClientSocket);
 	
+	this->mShouldClose = other.mShouldClose;
 	this->mClientSocket = other.mClientSocket;
 	other.mClientSocket = INVALID_SOCKET;
 

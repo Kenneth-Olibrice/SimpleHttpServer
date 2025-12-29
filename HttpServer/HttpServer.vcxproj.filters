@@ -24,12 +24,18 @@
     <ClCompile Include="HttpRequest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HttpListener.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HttpSocket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HttpRequest.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpListener.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

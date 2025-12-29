@@ -15,7 +15,7 @@
 class HttpSocket {
 public:
 	HttpSocket() {};
-	HttpSocket(SOCKET listenSocket);
+	HttpSocket(SOCKET clientSocket) : mClientSocket(clientSocket) {};
 	~HttpSocket();
 	
 	// We will support move semantics but not value semantics

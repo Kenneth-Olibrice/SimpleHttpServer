@@ -4,7 +4,6 @@
 #include <iostream>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
-#include <iostream>
 #include <string>
 #include <sstream>
 #include "HttpRequest.h"
@@ -50,6 +49,7 @@ int main()
 		return 1;
 	}
 
+	// Initialize the clients mutex here so it exists outside of the scope of the try-catch block
 	std::mutex clientsMutex;
 
 	try {
@@ -60,13 +60,13 @@ int main()
 
 		// Accept new client connections
 		std::thread acceptThread([&clients, &result, &clientsMutex]() {
-			HttpListener listener(result);
+			HttpListener listener{ result };
 			while (true) {
 				std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
 				if (potentialClient.has_value()) {
 					const std::lock_guard<std::mutex> clientsLock(clientsMutex);
 					clients.push_back(std::move(potentialClient.value()));
-					//std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
+					std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
 				}
 			}
 		});
@@ -74,13 +74,6 @@ int main()
 		acceptThread.detach();
 
 		do {
-			// Accept new client connections
-			/*std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
-			if (potentialClient.has_value()) {
-				clients.push_back(std::move(potentialClient.value()));
-				std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
-			}*/
-			
 			// Iterate through clients and service all requests
 			const std::lock_guard<std::mutex> clientsLock(clientsMutex);
 			for (auto it{ clients.begin() }; it != clients.end(); /* To avoid issues with iterator invalidation, do nothing here*/) {
@@ -88,13 +81,12 @@ int main()
 
 				// Check if the client has disconnected
 				if(it->shouldClose()) {
-					std::cout << "Client #" << std::distance(clients.begin(), it) << " has disconnected.\n";
+					// TODO: Assign unique client IDs to each client; don't just base their id on their place in the clients vector
+					std::cout << "Client #" << (std::distance(clients.begin(), it) + 1) << " has disconnected.\n";
 					it = clients.erase(it);
 					continue;
 				}
-				else {
-					++it;
-				}
+				
 
 				// Handle the client's request
 				if (request.has_value()) {
@@ -102,9 +94,9 @@ int main()
 					HttpRequest httpRequest{ request.value() };
 					std::cout << "Received request for " << httpRequest.getRequestTarget() << "\n";
 				}
-			}
 
-			//std::cout << "Test of nonblocking\n";
+				++it;
+			}
 		} while (true);
 	}
 	catch (...) {
@@ -112,48 +104,8 @@ int main()
 		WSACleanup();
 		return 1;
 	}
-	
-	
 
-
-	/*SOCKET listenSocket = INVALID_SOCKET;
-	listenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-
-	if (listenSocket == INVALID_SOCKET) {
-		printf("Error at socket(): %ld\n", WSAGetLastError());
-		freeaddrinfo(result);
-		WSACleanup();
-		return 1;
-	}
-
-	iResult = bind(listenSocket, result->ai_addr, static_cast<int>(result->ai_addrlen));
-	
-	freeaddrinfo(result);
-
-	if (iResult == SOCKET_ERROR) {
-		std::cerr << "Failed to bind to port " << COMM_PORT << ". Exiting.\n";
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	if (listen(listenSocket, 1) == SOCKET_ERROR) {
-		std::cerr << "Listen failed with error %ld\n" << WSAGetLastError();
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	SOCKET clientSocket{ INVALID_SOCKET };
-	clientSocket = accept(listenSocket, NULL, NULL);
-	if (clientSocket == INVALID_SOCKET) {
-		std::cerr << "Failed to accept incoming socket connection.";
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	closesocket(listenSocket);*/
+	// Final program cleanup. No need to free resource since all of our objects are RAII compliant
 	WSACleanup();
 	return 0;
 }
