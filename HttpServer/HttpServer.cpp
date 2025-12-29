@@ -4,23 +4,21 @@
 #include <iostream>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
-#include <iostream>
 #include <string>
 #include <sstream>
 #include "HttpRequest.h"
+#include "HttpListener.h"
+#include "HttpSocket.h"
+#include <vector>
+#include <iterator>
+#include <optional>
+#include <thread>
+#include <mutex>
 
 #pragma comment(lib,"Ws2_32.lib")
 
 #define COMM_PORT "8080"
 #define DEFAULT_BUFLEN 512
-
-typedef struct HTTPRequest {
-	char startLine[128];
-	char headers[1024];
-	char body[1024];
-} HTTPRequest;
-
-
 
 int main()
 {
@@ -29,7 +27,7 @@ int main()
 
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsadata);
 	if (iResult != 0) {
-		std::cerr << "Failed to initialzie Winsock\n";
+		std::cerr << "Failed to initialize Winsock\n";
 		return 1;
 	}
 
@@ -51,78 +49,63 @@ int main()
 		return 1;
 	}
 
-	SOCKET listenSocket = INVALID_SOCKET;
-	listenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	// Initialize the clients mutex here so it exists outside of the scope of the try-catch block
+	std::mutex clientsMutex;
 
-	if (listenSocket == INVALID_SOCKET) {
-		printf("Error at socket(): %ld\n", WSAGetLastError());
-		freeaddrinfo(result);
-		WSACleanup();
-		return 1;
-	}
+	try {
+		std::vector<HttpSocket> clients;
+		clients.reserve(10000); // Preallocate space for clients to avoid reallocation during operation
+		std::cout << "Listening on port " << COMM_PORT << "...\n";
+		
 
-	iResult = bind(listenSocket, result->ai_addr, static_cast<int>(result->ai_addrlen));
-	
-	freeaddrinfo(result);
-
-	if (iResult == SOCKET_ERROR) {
-		std::cerr << "Failed to bind to port " << COMM_PORT << ". Exiting.\n";
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	if (listen(listenSocket, 1) == SOCKET_ERROR) {
-		std::cerr << "Listen failed with error %ld\n" << WSAGetLastError();
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	SOCKET clientSocket{ INVALID_SOCKET };
-	clientSocket = accept(listenSocket, NULL, NULL);
-	if (clientSocket == INVALID_SOCKET) {
-		std::cerr << "Failed to accept incoming socket connection.";
-		closesocket(listenSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	char recvbuf[DEFAULT_BUFLEN];
-	int iSendResult;
-	int recvbuflen = DEFAULT_BUFLEN;
-
-	// Receive until the peer shuts down the connection
-	do {
-
-		iResult = recv(clientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-			printf("Bytes received: %d\n", iResult);
-
-			if (iResult == DEFAULT_BUFLEN) {
-				recvbuf[DEFAULT_BUFLEN - 1] = 0;
+		// Accept new client connections
+		std::thread acceptThread([&clients, &result, &clientsMutex]() {
+			HttpListener listener{ result };
+			while (true) {
+				std::optional<HttpSocket> potentialClient{ listener.acceptConnection() };
+				if (potentialClient.has_value()) {
+					const std::lock_guard<std::mutex> clientsLock(clientsMutex);
+					clients.push_back(std::move(potentialClient.value()));
+					std::cout << "Accepted new client connection. Total clients: " << clients.size() << "\n";
+				}
 			}
-			else {
-				recvbuf[iResult] = 0;
+		});
+
+		acceptThread.detach();
+
+		do {
+			// Iterate through clients and service all requests
+			const std::lock_guard<std::mutex> clientsLock(clientsMutex);
+			for (auto it{ clients.begin() }; it != clients.end(); /* To avoid issues with iterator invalidation, do nothing here*/) {
+				std::optional<std::string> request{ it->getRequest() };
+
+				// Check if the client has disconnected
+				if(it->shouldClose()) {
+					// TODO: Assign unique client IDs to each client; don't just base their id on their place in the clients vector
+					std::cout << "Client #" << (std::distance(clients.begin(), it) + 1) << " has disconnected.\n";
+					it = clients.erase(it);
+					continue;
+				}
+				
+
+				// Handle the client's request
+				if (request.has_value()) {
+					// Construct an HttpRequest object from the raw request string
+					HttpRequest httpRequest{ request.value() };
+					std::cout << "Received request for " << httpRequest.getRequestTarget() << "\n";
+				}
+
+				++it;
 			}
+		} while (true);
+	}
+	catch (...) {
+		std::cerr << "Fatal error. Last WSA error reported: " << WSAGetLastError() << "\n";
+		WSACleanup();
+		return 1;
+	}
 
-			HttpRequest request;
-			request.parseRequest(std::string(recvbuf));
-			std::cout << "Request parsed. Method: " << HttpRequest::httpMethodToString(request.getMethod()) <<
-				", Target: " << request.getRequestTarget() << std::endl;
-		}
-		else if (iResult == 0)
-			printf("Connection closing...\n");
-		else {
-			printf("recv failed: %d\n", WSAGetLastError());
-			closesocket(clientSocket);
-			WSACleanup();
-			return 1;
-		}
-
-	} while (iResult > 0);
-
-
-	closesocket(listenSocket);
+	// Final program cleanup. No need to free resource since all of our objects are RAII compliant
 	WSACleanup();
+	return 0;
 }

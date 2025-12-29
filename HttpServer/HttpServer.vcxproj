@@ -129,11 +129,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="HttpListener.cpp" />
     <ClCompile Include="HttpRequest.cpp" />
     <ClCompile Include="HttpServer.cpp" />
     <ClCompile Include="HttpSocket.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HttpListener.h" />
     <ClInclude Include="HttpRequest.h" />
     <ClInclude Include="HttpSocket.h" />
   </ItemGroup>
