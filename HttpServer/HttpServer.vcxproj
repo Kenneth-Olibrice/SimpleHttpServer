@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -130,14 +130,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="HttpListener.cpp" />
+    <ClCompile Include="HttpMessage.cpp" />
     <ClCompile Include="HttpRequest.cpp" />
+    <ClCompile Include="HttpResource.cpp" />
     <ClCompile Include="HttpServer.cpp" />
     <ClCompile Include="HttpSocket.cpp" />
+    <ClCompile Include="ServerConfigs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HttpListener.h" />
+    <ClInclude Include="HttpMessage.h" />
     <ClInclude Include="HttpRequest.h" />
+    <ClInclude Include="HttpResource.h" />
     <ClInclude Include="HttpSocket.h" />
+    <ClInclude Include="ServerConfigs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="server_configs.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="index.html" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

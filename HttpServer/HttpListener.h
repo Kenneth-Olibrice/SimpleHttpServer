@@ -5,7 +5,7 @@
 class HttpListener {
 public:
 	HttpListener() = delete;
-	HttpListener(struct addrinfo* addrinfo);
+	explicit HttpListener(struct addrinfo* addrinfo);
 	~HttpListener();
 	
 	// We will never support copy semantics for this class
